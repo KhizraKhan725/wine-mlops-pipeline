@@ -5,7 +5,11 @@
 ![MLflow](https://img.shields.io/badge/MLflow-2.17.2-0194E2.svg)
 ![Code style: flake8](https://img.shields.io/badge/code%20style-flake8-black.svg)
 
+<<<<<<< HEAD
 An enterprise-grade (Main line update), reproducible MLOps pipeline for multi-class chemical cultivar classification using the 13-feature Wine dataset.
+=======
+An enterprise-grade (Branch conflict-simulation), reproducible MLOps pipeline for multi-class chemical cultivar classification using the 13-feature Wine dataset.
+>>>>>>> conflict-simulation
 
 ## 🎯 Architecture & Features
 - **Local Automation via Makefile**: Standardized developer workflow (`install`, `lint`, `test`, `train`, `clean`).
