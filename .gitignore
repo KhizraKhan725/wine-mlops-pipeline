@@ -1,0 +1,12 @@
+mlruns/
+mlflow.db
+.pytest_cache/
+__pycache__/
+*.pyc
+.venv/
+models/
+artifacts/
+reports/figures/
+.DS_Store
+*.docx
+*.pdf
