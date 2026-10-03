@@ -1,12 +1,15 @@
+# mlflow
 mlruns/
 mlflow.db
-.pytest_cache/
+mlartifacts/
+
+# python
 __pycache__/
 *.pyc
+.pytest_cache/
 .venv/
-models/
-artifacts/
-reports/figures/
-.DS_Store
-*.docx
-*.pdf
+venv/
+
+# model artifacts
+*.pkl
+*.joblib
