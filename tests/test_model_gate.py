@@ -13,7 +13,11 @@ from sklearn.model_selection import StratifiedKFold, cross_val_score
 
 from src.data import SEED, get_splits
 
+<<<<<<< HEAD
 MIN_VAL_F1 = 0.80
+=======
+MIN_VAL_F1 = 0.90
+>>>>>>> conflict-simulation
 MAX_LATENCY_MS = 30.0
 
 
