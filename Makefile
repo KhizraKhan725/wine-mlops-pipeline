@@ -1,17 +1,24 @@
-.PHONY: install lint test train clean
+PYTHON ?= python
+
+.PHONY: install lint test train evaluate clean
 
 install:
-	python -m pip install --upgrade pip
-	pip install -r requirements.txt
+	$(PYTHON) -m pip install --upgrade pip
+	$(PYTHON) -m pip install -r requirements.txt
 
 lint:
-	flake8 src/ tests/ --max-line-length=100
+	$(PYTHON) -m flake8 --max-line-length=100 src/ tests/
 
 test:
-	pytest -v
+	$(PYTHON) -m pytest -v tests/
 
 train:
-	python src/train.py
+	$(PYTHON) -m src.train
+
+evaluate:
+	$(PYTHON) -m src.evaluate
 
 clean:
-	python -c "import shutil, pathlib; [shutil.rmtree(p, ignore_errors=True) for p in pathlib.Path('.').rglob('__pycache__')]; [p.unlink() for p in pathlib.Path('.').rglob('*.py[co]')]; shutil.rmtree('.pytest_cache', ignore_errors=True)"
+	find . -name "*.pyc" -not -path "./.venv/*" -delete
+	find . -name "__pycache__" -not -path "./.venv/*" -type d -exec rm -rf {} +
+	rm -rf .pytest_cache

@@ -1,31 +1,28 @@
-name: CI/CD MLOps Quality Gate
+name: CI
 
 on:
-  push:
-    branches: [ main ]
   pull_request:
-    branches: [ main ]
+    branches: [main]
+  push:
+    branches: [main]
 
 jobs:
   build-and-test:
-    name: Lint, Test & Model Quality Gate
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout Source Code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.10"
-        cache: 'pip'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
 
-    - name: Install Dependencies
-      run: make install
+      - name: Install dependencies
+        run: make install
 
-    - name: Code Quality & Linting
-      run: make lint
+      - name: Lint
+        run: make lint
 
-    - name: Unit Tests & MLOps Quality Gate
-      run: make test
+      - name: Test (includes model quality gate)
+        run: make test

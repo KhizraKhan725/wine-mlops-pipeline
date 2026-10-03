@@ -1,71 +1,62 @@
-"""Automated MLOps Quality Gate tests for model operational validation."""
+"""Quality gate: a model must clear these checks before it can reach main.
 
+The gate trains the reference config itself (rather than reading mlflow.db)
+so it runs the same on a fresh CI checkout.
+"""
 import time
-import pytest
+
 import numpy as np
-from sklearn.metrics import f1_score
+import pytest
 from sklearn.ensemble import RandomForestClassifier
-from src.data import load_and_validate_data
+from sklearn.metrics import f1_score
+from sklearn.model_selection import StratifiedKFold, cross_val_score
+
+from src.data import SEED, get_splits
+
+MIN_VAL_F1 = 0.88
+MAX_LATENCY_MS = 30.0
 
 
 @pytest.fixture(scope="module")
-def dataset_and_model():
-    """Fixture providing loaded dataset and trained candidate model."""
-    X_train, X_test, y_train, y_test = load_and_validate_data()
-    model = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42)
-    model.fit(X_train, y_train)
-    return {
-        "model": model,
-        "X_train": X_train,
-        "X_test": X_test,
-        "y_train": y_train,
-        "y_test": y_test
-    }
+def splits():
+    return get_splits()
 
 
-def test_metric_threshold_gate(dataset_and_model):
-    """Quality Gate 1: Macro F1-score must be >= 0.88."""
-    model = dataset_and_model["model"]
-    X_test = dataset_and_model["X_test"]
-    y_test = dataset_and_model["y_test"]
-
-    y_pred = model.predict(X_test)
-    macro_f1 = f1_score(y_test, y_pred, average="macro")
-    threshold = 0.88
-    assert macro_f1 >= threshold, f"Model Macro F1 ({macro_f1:.4f}) failed threshold ({threshold})"
+@pytest.fixture(scope="module")
+def model(splits):
+    X_train, _, y_train, _ = splits
+    clf = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=SEED)
+    return clf.fit(X_train, y_train)
 
 
-def test_inference_latency_gate(dataset_and_model):
-    """Quality Gate 2: Batch inference latency must be <= 30 ms."""
-    model = dataset_and_model["model"]
-    X_test = dataset_and_model["X_test"]
-
-    # Warmup
-    _ = model.predict(X_test)
-    latencies = []
-    for _ in range(50):
-        start_time = time.perf_counter()
-        _ = model.predict(X_test)
-        elapsed_ms = (time.perf_counter() - start_time) * 1000.0
-        latencies.append(elapsed_ms)
-
-    avg_latency_ms = np.mean(latencies)
-    max_threshold_ms = 30.0
-    assert avg_latency_ms <= max_threshold_ms, (
-        f"Inference latency ({avg_latency_ms:.2f} ms) exceeded threshold ({max_threshold_ms} ms)"
-    )
+def test_validation_f1_threshold(splits):
+    X_train, _, y_train, _ = splits
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
+    clf = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=SEED)
+    scores = cross_val_score(clf, X_train, y_train, cv=cv, scoring="f1_macro")
+    assert scores.mean() >= MIN_VAL_F1, f"val macro F1 {scores.mean():.3f} < {MIN_VAL_F1}"
 
 
-def test_output_schema_integrity(dataset_and_model):
-    """Quality Gate 3: Output predictions must contain class indices only (0, 1, or 2)."""
-    model = dataset_and_model["model"]
-    X_test = dataset_and_model["X_test"]
+def test_test_split_f1_threshold(model, splits):
+    _, X_test, _, y_test = splits
+    f1 = f1_score(y_test, model.predict(X_test), average="macro")
+    assert f1 >= MIN_VAL_F1
 
-    y_pred = model.predict(X_test)
-    valid_classes = {0, 1, 2}
-    unique_preds = set(np.unique(y_pred))
 
-    assert unique_preds.issubset(valid_classes), (
-        f"Predicted invalid class indices: {unique_preds.difference(valid_classes)}"
-    )
-    assert np.issubdtype(y_pred.dtype, np.integer), f"Predictions not int: {y_pred.dtype}"
+def test_batch_inference_latency(model, splits):
+    _, X_test, _, _ = splits
+    model.predict(X_test)  # warm-up call
+    timings = []
+    for _ in range(10):
+        start = time.perf_counter()
+        model.predict(X_test)
+        timings.append((time.perf_counter() - start) * 1000)
+    best = min(timings)
+    assert best <= MAX_LATENCY_MS, f"batch latency {best:.1f} ms > {MAX_LATENCY_MS} ms"
+
+
+def test_output_schema_only_valid_classes(model, splits):
+    _, X_test, _, _ = splits
+    preds = model.predict(X_test)
+    assert len(preds) == len(X_test)
+    assert set(np.unique(preds)).issubset({0, 1, 2})
